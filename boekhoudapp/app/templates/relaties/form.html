@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titel %}Relatie{% endblock %}
+{% block inhoud %}
+<h1>{{ relatie.naam if relatie else "Nieuwe relatie" }}</h1>
+<div class="paneel">
+  <form method="post" action="/relaties/opslaan" class="regelvorm">
+    {% if relatie %}<input type="hidden" name="relatie_id" value="{{ relatie.id }}">{% endif %}
+    <div class="velden">
+      <div>
+        <label>Type</label>
+        <select name="type">
+          <option value="bedrijf" {{ 'selected' if not relatie or relatie.type == 'bedrijf' }}>Bedrijf</option>
+          <option value="particulier" {{ 'selected' if relatie and relatie.type == 'particulier' }}>Particulier</option>
+        </select>
+        <label>Naam</label><input name="naam" required value="{{ relatie.naam if relatie }}">
+        <label>Contactpersoon</label><input name="contactpersoon" value="{{ relatie.contactpersoon if relatie }}">
+        <label>E-mailadres</label><input name="email" type="email" value="{{ relatie.email if relatie }}">
+        <label>Telefoonnummer</label><input name="telefoon" value="{{ relatie.telefoon if relatie }}">
+      </div>
+      <div>
+        <label>Adres</label><input name="adres" value="{{ relatie.adres if relatie }}">
+        <label>Postcode</label><input name="postcode" value="{{ relatie.postcode if relatie }}">
+        <label>Stad</label><input name="stad" value="{{ relatie.stad if relatie }}">
+        <label>Land</label><input name="land" value="{{ relatie.land if relatie else 'Nederland' }}">
+      </div>
+      <div>
+        <label>Factuuradres (zoals op de factuur; leeg = automatisch)</label>
+        <textarea name="factuuradres">{{ relatie.factuuradres if relatie }}</textarea>
+        <label>Notities</label>
+        <textarea name="notities">{{ relatie.notities if relatie }}</textarea>
+      </div>
+    </div>
+    <div class="acties" style="margin-top:18px">
+      <button class="knop" type="submit">Opslaan</button>
+      <a class="knop tweede" href="/relaties">Terug</a>
+    </div>
+  </form>
+  {% if relatie %}
+  <form method="post" action="/relaties/{{ relatie.id }}/archiveer" style="margin-top:12px"
+        onsubmit="return confirm('Relatie archiveren?')">
+    <button class="knop rood klein" type="submit">Archiveer</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

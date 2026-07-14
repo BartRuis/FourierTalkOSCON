@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titel %}Facturen{% endblock %}
+{% block inhoud %}
+<div class="balk"><h1>Facturen</h1><a class="knop" href="/facturen/nieuw">+ Nieuw</a></div>
+<div class="paneel">
+  {% if rijen %}
+  <table>
+    <thead>
+      <tr><th>Status</th><th>Nummer</th><th>Datum</th><th>Klant</th><th class="r">Excl. btw</th><th class="r">Incl. btw</th></tr>
+    </thead>
+    <tbody>
+      {% for factuur, totalen in rijen %}
+      <tr>
+        <td>
+          <span class="status {{ factuur.status }}">{{ factuur.status }}</span>
+          {% if factuur.status == 'definitief' %}
+            {% set dagen = (vandaag - factuur.factuurdatum).days %}
+            <small style="color:#ad7714">{{ dagen }} {{ 'dag' if dagen == 1 else 'dagen' }} open</small>
+          {% endif %}
+        </td>
+        <td><a href="/facturen/{{ factuur.id }}">{{ factuur.nummer or "concept" }}</a></td>
+        <td>{{ factuur.factuurdatum|datum }}</td>
+        <td>{{ factuur.relatie.naam if factuur.relatie }}</td>
+        <td class="r">&euro; {{ totalen.totaal_excl|euro }}</td>
+        <td class="r">&euro; {{ totalen.totaal_incl|euro }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr><td colspan="4">Totaal</td><td class="r">&euro; {{ totaal_excl|euro }}</td><td class="r">&euro; {{ totaal_incl|euro }}</td></tr>
+    </tfoot>
+  </table>
+  {% else %}<div class="leeg">Nog geen facturen — klik op Nieuw om de eerste factuur te maken</div>{% endif %}
+</div>
+{% endblock %}

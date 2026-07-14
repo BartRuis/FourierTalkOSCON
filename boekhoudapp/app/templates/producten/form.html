@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titel %}Product{% endblock %}
+{% block inhoud %}
+<h1>{{ product.naam if product else "Nieuw product" }}</h1>
+<div class="paneel">
+  <form method="post" action="/producten/opslaan" class="regelvorm">
+    {% if product %}<input type="hidden" name="product_id" value="{{ product.id }}">{% endif %}
+    <label>Naam</label><input name="naam" required value="{{ product.naam if product }}">
+    <label>Opmerking</label><input name="opmerking" value="{{ product.opmerking if product }}">
+    <label>Bedrag excl. btw</label>
+    <input name="bedrag" inputmode="decimal" value="{{ (product.bedrag_cents / 100)|round(2) if product else '' }}">
+    <label>Btw-percentage</label>
+    <select name="btw_tarief_id">
+      {% for tarief in btw_tarieven if tarief.rubriek in ('1a', '1b', '1e') %}
+      <option value="{{ tarief.id }}" {{ 'selected' if product and product.btw_tarief_id == tarief.id }}>{{ tarief.omschrijving }}</option>
+      {% endfor %}
+    </select>
+    <div class="acties" style="margin-top:18px">
+      <button class="knop" type="submit">Opslaan</button>
+      <a class="knop tweede" href="/producten">Terug</a>
+    </div>
+  </form>
+  {% if product %}
+  <form method="post" action="/producten/{{ product.id }}/archiveer" style="margin-top:12px">
+    <button class="knop rood klein" type="submit">Archiveer</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

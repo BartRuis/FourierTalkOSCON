@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titel %}Producten{% endblock %}
+{% block inhoud %}
+<div class="balk"><h1>Producten</h1><a class="knop" href="/producten/nieuw">+ Nieuw</a></div>
+<div class="paneel">
+  {% if producten %}
+  <table>
+    <thead><tr><th>Naam</th><th>Opmerkingen</th><th class="r">Bedrag excl. btw</th><th>Btw</th></tr></thead>
+    <tbody>
+      {% for product in producten %}
+      <tr>
+        <td><a href="/producten/{{ product.id }}">{{ product.naam }}</a></td>
+        <td>{{ product.opmerking }}</td>
+        <td class="r">&euro; {{ product.bedrag_cents|euro }}</td>
+        <td>{{ product.btw_tarief.omschrijving if product.btw_tarief }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="leeg">Nog geen producten — producten zijn snelkeuzes voor factuurregels</div>{% endif %}
+</div>
+{% endblock %}

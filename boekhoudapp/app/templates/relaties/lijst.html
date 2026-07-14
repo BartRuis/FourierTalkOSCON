@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titel %}Relaties{% endblock %}
+{% block inhoud %}
+<div class="balk"><h1>Relaties</h1><a class="knop" href="/relaties/nieuw">+ Nieuw</a></div>
+<div class="paneel">
+  {% if relaties %}
+  <table>
+    <thead><tr><th>Naam</th><th>Contactpersoon</th><th>E-mailadres</th><th>Plaats</th></tr></thead>
+    <tbody>
+      {% for relatie in relaties %}
+      <tr>
+        <td><a href="/relaties/{{ relatie.id }}">{{ relatie.naam }}</a></td>
+        <td>{{ relatie.contactpersoon }}</td>
+        <td>{{ relatie.email }}</td>
+        <td>{{ relatie.stad }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="leeg">Nog geen relaties — maak de eerste aan</div>{% endif %}
+</div>
+{% endblock %}

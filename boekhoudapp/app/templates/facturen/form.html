@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block titel %}Factuur {{ factuur.nummer or "concept" }}{% endblock %}
+{% block inhoud %}
+{% set concept = factuur.status == 'concept' %}
+<div class="balk">
+  <h1>Factuur {{ factuur.nummer or "(concept)" }} <span class="status {{ factuur.status }}">{{ factuur.status }}</span></h1>
+  <div class="acties">
+    <a class="knop tweede" href="/facturen/{{ factuur.id }}/pdf" target="_blank">PDF Factuur</a>
+    {% if concept %}
+    <form method="post" action="/facturen/{{ factuur.id }}/definitief"
+          onsubmit="return confirm('Definitief maken? De factuur krijgt een nummer, wordt geboekt en is daarna niet meer te wijzigen.')">
+      <button class="knop donker" type="submit">Maak definitief</button>
+    </form>
+    {% elif factuur.status == 'definitief' %}
+    <form method="post" action="/facturen/{{ factuur.id }}/betaald" class="acties">
+      <input type="date" name="betaaldatum" value="{{ vandaag.isoformat() }}" style="width:160px">
+      <button class="knop" type="submit">Zet op betaald</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if foutmelding %}<div class="melding">{{ foutmelding }}</div>{% endif %}
+
+<div class="paneel">
+  <form method="post" action="/facturen/{{ factuur.id }}/opslaan" class="regelvorm" id="factuurvorm">
+    <div class="velden">
+      <div>
+        <label>Factuurdatum</label>
+        <input type="date" name="factuurdatum" value="{{ factuur.factuurdatum.isoformat() }}" {{ '' if concept else 'disabled' }}>
+        <label>Klant</label>
+        <select name="relatie_id" {{ '' if concept else 'disabled' }}>
+          <option value=""></option>
+          {% for relatie in relaties %}
+          <option value="{{ relatie.id }}" {{ 'selected' if factuur.relatie_id == relatie.id }}>{{ relatie.naam }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Korting (%)</label>
+        <input name="korting_pct" inputmode="decimal" value="{{ (factuur.korting_pct or 0)|pct }}" {{ '' if concept else 'disabled' }}>
+        <label>Notities (intern)</label>
+        <textarea name="notities" {{ '' if concept else 'disabled' }}>{{ factuur.notities }}</textarea>
+      </div>
+    </div>
+
+    <h2>Regels</h2>
+    <table class="regels-tabel">
+      <thead><tr><th>Omschrijving</th><th class="aantal">Aantal</th><th class="bedrag">Bedrag excl. btw</th><th class="btw">Btw</th><th></th></tr></thead>
+      <tbody id="regels">
+        {% for regel in factuur.regels %}
+        <tr>
+          <td><input name="regel_omschrijving" value="{{ regel.omschrijving }}" {{ '' if concept else 'disabled' }}></td>
+          <td class="aantal"><input name="regel_aantal" inputmode="decimal" value="{{ regel.aantal }}" {{ '' if concept else 'disabled' }}></td>
+          <td class="bedrag"><input name="regel_bedrag" inputmode="decimal" value="{{ (regel.bedrag_cents / 100)|round(2) }}" {{ '' if concept else 'disabled' }}></td>
+          <td class="btw">
+            <select name="regel_btw_tarief_id" {{ '' if concept else 'disabled' }}>
+              {% for tarief in btw_tarieven %}
+              <option value="{{ tarief.id }}" {{ 'selected' if regel.btw_tarief_id == tarief.id }}>{{ tarief.omschrijving }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>{% if concept %}<button type="button" class="knop rood klein" onclick="this.closest('tr').remove()">&times;</button>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if concept %}
+    <div class="acties" style="margin-top:12px">
+      <button type="button" class="knop tweede klein" onclick="regelToevoegen()">+ Regel toevoegen</button>
+      {% if producten %}
+      <select id="productkeuze" style="max-width:260px" onchange="productInvoegen(this)">
+        <option value="">Product invoegen…</option>
+        {% for product in producten %}
+        <option value="{{ product.naam }}|{{ (product.bedrag_cents / 100)|round(2) }}|{{ product.btw_tarief_id }}">{{ product.naam }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="totalen">
+      <div><span>Subtotaal</span><span>&euro; {{ totalen.subtotaal|euro }}</span></div>
+      {% if totalen.korting %}<div><span>{{ factuur.korting_pct|pct }}% korting</span><span>&euro; -{{ totalen.korting|euro }}</span></div>{% endif %}
+      <div><span>Totaal excl. btw</span><span>&euro; {{ totalen.totaal_excl|euro }}</span></div>
+      {% for pct, bedrag in totalen.btw_per_pct.items() %}
+      <div><span>{{ pct|int }}% btw</span><span>&euro; {{ bedrag|euro }}</span></div>
+      {% endfor %}
+      <div class="eind"><span>Totaal</span><span>&euro; {{ totalen.totaal_incl|euro }}</span></div>
+    </div>
+
+    {% if concept %}
+    <div class="acties" style="margin-top:18px">
+      <button class="knop" type="submit">Opslaan</button>
+      <a class="knop tweede" href="/facturen">Terug</a>
+    </div>
+    {% else %}
+    <div class="acties" style="margin-top:18px"><a class="knop tweede" href="/facturen">Terug</a></div>
+    {% endif %}
+  </form>
+
+  {% if concept %}
+  <form method="post" action="/facturen/{{ factuur.id }}/verwijderen" style="margin-top:12px"
+        onsubmit="return confirm('Conceptfactuur verwijderen?')">
+    <button class="knop rood klein" type="submit">Verwijderen</button>
+  </form>
+  {% endif %}
+</div>
+
+<template id="regel-template">
+  <tr>
+    <td><input name="regel_omschrijving"></td>
+    <td class="aantal"><input name="regel_aantal" inputmode="decimal" value="1"></td>
+    <td class="bedrag"><input name="regel_bedrag" inputmode="decimal"></td>
+    <td class="btw">
+      <select name="regel_btw_tarief_id">
+        {% for tarief in btw_tarieven %}<option value="{{ tarief.id }}">{{ tarief.omschrijving }}</option>{% endfor %}
+      </select>
+    </td>
+    <td><button type="button" class="knop rood klein" onclick="this.closest('tr').remove()">&times;</button></td>
+  </tr>
+</template>
+
+<script>
+function regelToevoegen() {
+  const rij = document.getElementById('regel-template').content.cloneNode(true);
+  document.getElementById('regels').appendChild(rij);
+}
+function productInvoegen(select) {
+  if (!select.value) return;
+  const [naam, bedrag, btwId] = select.value.split('|');
+  regelToevoegen();
+  const rij = document.getElementById('regels').lastElementChild;
+  rij.querySelector('[name=regel_omschrijving]').value = naam;
+  rij.querySelector('[name=regel_bedrag]').value = bedrag;
+  rij.querySelector('[name=regel_btw_tarief_id]').value = btwId;
+  select.value = '';
+}
+{% if concept and not factuur.regels %}regelToevoegen();{% endif %}
+</script>
+{% endblock %}
