@@ -1,112 +1,182 @@
-# Plan van aanpak — Eigen boekhoudapp (naar voorbeeld van Knab Boekhouden)
+# Plan van aanpak — Eigen boekhoudapp (nabouw Knab Boekhouden / DigiBoox)
 
-**Doel:** een zelfgebouwde boekhoudapplicatie voor eigen gebruik als zzp'er, met de functionaliteiten van Knab Boekhouden die jij daadwerkelijk gebruikt. Geen multi-tenant SaaS, geen team-features — één gebruiker, jouw administratie, volledige controle over je eigen data.
+**Doel:** een zelfgebouwde boekhoudapplicatie voor eigen gebruik als zzp'er (eenmanszaak), met de functionaliteiten van Knab Boekhouden die jij daadwerkelijk gebruikt. Eén gebruiker, eigen data, volledige controle.
+
+**Status:** fase 0 (inventarisatie) is afgerond op basis van ~70 screenshots van de complete app, een voorbeeld-offerte-PDF en drie DigiBoox-exports (ritten, uren, categorieën). Dit document is de definitieve featurelijst + bouwplan. Knab Boekhouden blijkt een white-label van **DigiBoox**.
 
 ---
 
-## 1. Uitgangspunten
+## 1. Kerninzicht uit de inventarisatie: het is dubbel boekhouden
 
-- **Eén gebruiker** (jij), dus geen ingewikkeld rollen-/rechtensysteem.
-- **Eigen data, eigen beheer:** alles draait lokaal of op een eigen (goedkope) server; data is altijd exporteerbaar.
-- **Wettelijke eisen als leidraad, niet de Knab-UI:** we bouwen de *functies* na, niet pixel-voor-pixel het design. Wel gebruiken we jouw screenshots om workflows en schermen te modelleren.
-- **Nederlandse zzp-context:** btw-aangifte per kwartaal, factuureisen Belastingdienst, 7 jaar bewaarplicht (10 jaar bij onroerend goed), kleineondernemersregeling (KOR) optioneel.
+De schermen "Kolommenbalans", "Mutaties" en "Balans" laten zien dat elke handeling (factuur opslaan, bon inboeken, banktransactie koppelen, afschrijving, rittenregistratie) onder water een **journaalpost in een dagboek** produceert: *Verkoopboek*, *Inkopen*, *Bank* of *Memoriaal*. Voorbeeld uit de mutaties: één factuur van € 63.924,30 wordt geboekt als Debiteuren (debet) tegen Omzet € 52.830 + Te betalen btw € 11.094 (credit).
 
-## 2. Fase 0 — Inventarisatie & prioritering (samen met jou)
+**Architectuurbeslissing:** we bouwen een kleine double-entry kern (journaalposten met debet/credit op categorieën). Alle rapportages (balans, W&V, kolommenbalans, mutaties, btw-aangifte) zijn dan *afleidingen* van één grootboek in plaats van los geprogrammeerde optellingen. Dit is de enige manier om gegarandeerd kloppende cijfers te krijgen en is precies hoe het origineel werkt.
 
-Dit is de eerste concrete stap en hier heb ik jouw input voor nodig:
+De categorieën-export levert het complete rekeningschema: 45 categorieën met hun type (bijlage A). Dit nemen we 1-op-1 over als startschema.
 
-1. **Screenshots delen** van elk scherm in Knab Boekhouden dat je gebruikt: dashboard, facturen, offertes, bonnetjes, btw-aangifte, transacties/koppelen, rapportages, instellingen (factuurnummering, btw-tarieven, huisstijl).
-2. **Feature-lijst opstellen** op basis van de screenshots, en per feature aangeven:
-   - **Must have** — gebruik je elke week/maand;
-   - **Should have** — gebruik je per kwartaal (bijv. btw-aangifte);
-   - **Could have** — handig maar niet essentieel;
-   - **Won't have** — gebruik je nooit (schrappen we).
-3. **Data-export uit Knab** veiligstellen: facturen (PDF/UBL), transacties (CSV/CAMT.053), klantgegevens, bonnetjes. Dit dient twee doelen: migratie van je historie én voorbeelddata om mee te ontwikkelen.
-4. **Beslissingen vastleggen** (zie §7, openstaande keuzes).
+## 2. Functionele scope per module (zoals aangetroffen)
 
-**Resultaat:** definitieve featurelijst + gemigreerde voorbeelddata.
+Prioritering als voorstel; pas aan waar nodig. ✅ = must, 🔶 = should, ⚪ = could, ❌ = won't.
 
-## 3. Verwachte functionele scope
+### 2.1 Relaties ✅
+Bedrijf/particulier, bedrijfsnaam (origineel zoekt in KvK-register), contactpersoon, e-mail, telefoon, adres, apart factuuradres (vrije tekst), notities, archiveren. *KvK-zoeken kan later via de gratis KVK API (⚪).*
 
-Op basis van wat Knab Boekhouden biedt voor zzp'ers; we strepen weg/vullen aan na fase 0:
+### 2.2 Offertes ✅
+Offertedatum, klant, referentie, vervaldatum (default +1 maand), begeleidende tekst, interne notities, regels (omschrijving/aantal/bedrag excl.-incl. schakelaar/btw-%), kortingsregel (%), productkoppeling per regel, nummering `yyyy-XXXX`, statussen (Nieuw/Niet verstuurd → verstuurd → geaccepteerd), PDF-generatie, versturen per e-mail (met onderwerp/tekst-template, bijlagen, voorbeeld), **"Offerte bekijken en accepteren"-link in de mail** (🔶 — vereist een publiek bereikbaar endpointje), **Factuur maken** vanuit offerte, kopiëren, bestand uploaden bij offerte.
 
-| Domein | Functionaliteit |
+### 2.3 Facturen ✅
+Zelfde regelseditor als offertes + factuurdatum, betaaltermijn uit instellingen (30 dgn), status open/x-dagen-open/betaald, **urenkoppeling**: geselecteerde uren als factuurregels + optionele urenspecificatie-bijlage, PDF, verstuur factuur / verstuur herinnering / zet op 'Verstuurd', **maak creditfactuur**, zet op betaald (of automatisch via bankkoppeling), kopiëren, upload bijlage. Tab **Periodieke facturen** ⚪ (alleen bouwen als je die echt gebruikt). Factuurnummer strikt opeenvolgend, roulatie jaarlijks, formaat instelbaar (`yyyy-XXXX`); factuur onveranderlijk na versturen (correctie via creditfactuur).
+
+### 2.4 Kosten (inkoop & bonnen) ✅
+Datum, leverancier (relatie), factuurnummer leverancier, regels (omschrijving/bedrag/btw-%/**categorie**), bon/factuur-upload met preview naast het formulier ("Bon-weergave" vs "Inkoop-weergave"), status open/betaald, creditfactuur, zet op betaald. **Afschrijven vanaf inkoopregel**: investering → afschrijving met startdatum, aanschafwaarde, aantal maanden (bijv. 60), restwaarde, categorie balans (Investeringen) + categorie kosten (Afschrijvingen); maandelijkse memoriaalboekingen, statusoverzicht (afgeschreven bedrag, huidige waarde, laatste afschrijving), afschrijvingenlijst, stoppen. ScanPilot AI (OCR + mail-inbox voor bonnen) ❌ voor de start — handmatig invoeren met bon-preview is prima; eventueel later lokaal OCR ⚪.
+
+### 2.5 Bank/kas ✅
+Meerdere rekeningen (Bank, Kas, Zakelijke spaarrekening; toevoegen mogelijk), **te-verwerken-wachtrij** met teller, transactielijst met koppelstatus, export. Per geïmporteerde transactie een verwerkscherm met tabs **Factuur / Inkoop / Spaar / Privé / Overig**, automatische koppelsuggestie ("Deze transactie is automatisch door het systeem gekoppeld — controleer en klik op Opslaan"), deelbetalingen via meerdere regels, "Opslaan en volgende" / "Overslaan" voor snel doorwerken. Opties: **Bankimport** (CSV/CAMT ✅), **Bankkoppeling via Ponto** (❌ start, ⚪ later), **Automatische verwerkregels** (🔶 — "afzender X → categorie Y"), handmatige transactie ✅.
+
+### 2.6 Btw ✅ (het kwartaalritueel)
+Overzicht per jaar: 4 kwartalen met status (niet verstuurd / nog niet afgelopen / verstuurd) en bedrag. Aangiftescherm met **rubrieken 1a–5b** (compact: alleen relevante regels; uitklapbaar naar alle regels), omzet + omzetbelasting per rubriek, **klikbare onderbouwing per regel**, "Btw te betalen"-totaal. Versturen naar Belastingdienst via Digipoort ❌ — wij maken een **overtyp-overzicht voor Mijn Belastingdienst Zakelijk** + "markeer als verstuurd". Opgaaf ICP: alleen een melding zolang niet van toepassing ⚪. Btw-percentages instelbaar en gemapt op rubriek (21%→1a, 9%→1b, verlegd→1e, voorbelasting→5b).
+
+### 2.7 Uren & Projecten ✅
+Projecten: type **Factureerbaar** (klant + uurtarief) of **Intern**, notities, archiveren. Uren: invoer (datum, tijdsduur, project, omschrijving, opslaan+nieuw), weekoverzicht (ma–zo grid per week, filter), zoeken/lijst met totaal, export. **Uren factureren**: selecteer niet-gefactureerde uren per project → factuur met tarief × uren, urenspecificatie aan/uit, uren krijgen factuurkoppeling.
+
+### 2.8 Ritten 🔶
+Ritregistratie: datum, vertrekpunt/bestemming (vrij adres of adres van relatie), vervoermiddel (Auto/Motor/Fiets; zakelijk of privé; "auto van de zaak?"), afstand met **Bereken-knop** (routeberekening — bij ons: OpenStreetMap/OSRM ⚪ of handmatig invullen), zakelijk-vinkje met vergoeding **€ 0,25/km** (instelbaar per jaar), kilometerstanden begin/eind, omschrijving, opslaan+retourrit. Lijst met totalen zakelijk/privé, export. Genereert memoriaalboeking Reiskosten tegen Privé-stortingen.
+
+### 2.9 Overzichten ✅
+- **Winst- en verliesrekening**: opbrengsten/kosten gegroepeerd, periode-selectie, export.
+- **Balans**: activa/passiva per categoriegroep, per einde periode.
+- **Kolommenbalans** 🔶: beginbalans / mutaties / eindbalans in debet-credit-kolommen.
+- **Kosten en omzet**: staafgrafiek per maand + tabel, groepering instelbaar.
+- **Mutaties** ✅: alle journaalregels, filter op periode/type(dagboek)/categorie, zoeken, export — het audit-venster op het grootboek.
+- Historisch overzicht debiteuren/crediteuren ⚪.
+
+### 2.10 Overige boekingen (memoriaal) 🔶
+Vrije memoriaalboeking + zoeken. Wizards: **Beginbalans** ✅ (nodig voor migratie!), **Jaarafsluiting** ✅ (winst → winstreserves), Bijtelling ⚪, Financial lease ❌, Btw privé-gebruik auto ⚪, Extra btw-teruggave ⚪.
+
+### 2.11 Inkomstenbelasting ⚪
+In het origineel een betaalde wizard (€ 130) die aangifte indient. Voor ons: **jaarrapport voor de IB-aangifte** (fiscale winstberekening, balans, W&V, investeringen/afschrijvingen, gereden km's, urenoverzicht voor het urencriterium) dat je naast de aangifte op Mijn Belastingdienst legt. Geen indiening.
+
+### 2.12 Instellingen ✅
+Bedrijfsgegevens (naam, e-mail, telefoon, IBAN, KvK, OB-nummer, btw-id, betaaltermijn, rechtsvorm, branche, btw-aangifte per kwartaal), bedrijfslogo, lay-out factuur/offerte, factuur-/offertenummering (formaat + roulatie + huidig volgnummer), bcc-aan-jezelf bij e-mail, e-mailtekst-templates per type (Factuur, Creditfactuur, Herinnering, Aanmaning, Ingebrekestelling, Offerte) met placeholders zoals `{nummer}` en bijlagen, betaalmethodes, btw-percentages, **periodes 0–13 met open/gesloten status** (0 = beginbalans, 13 = jaarafsluiting), categorieënbeheer, producten (naam, opmerking, bedrag, btw, categorie — als snelkeuze in regeleditor), vervoermiddelen. Koppelingen (Mollie iDEAL-betaallinks, Ponto) ❌ start / ⚪ later. Gebruikersbeheer ❌ (single user). Dashboard ✅: tegels (te ontvangen omzet, te betalen kosten, winst, btw huidig kwartaal), omzet/kosten-grafiek, laatste facturen, bank/kas-saldi, winst, balans-samenvatting, debiteuren/crediteuren.
+
+## 3. Architectuur
+
+**Aanbeveling: lokaal draaiende webapp, SQLite, alles in één proces.**
+
+- **Backend:** Python (FastAPI + SQLAlchemy) of TypeScript (Node/Fastify + Drizzle) — jouw keuze (§6).
+- **Database:** SQLite; bonnen/PDF's als bestanden ernaast met hash-verwijzing.
+- **Frontend:** server-rendered + HTMX/Alpine (snel te bouwen, Knab-achtige schermen zijn klassieke formulieren/lijsten) óf React als je een rijkere UI wilt.
+- **PDF:** HTML-template → PDF (WeasyPrint of Playwright) voor factuur/offerte/urenspecificatie, naar het model van de voorbeeld-PDF (logo, adresblok, KvK/btw-id/IBAN, regels, korting, btw-samenvatting).
+- **E-mail:** SMTP met eigen domein (of Postmark/SES), bcc naar jezelf, templates met placeholders.
+- **Back-up:** dagelijkse versleutelde kopie van db + bestanden naar cloud-opslag; restore-test hoort bij fase 1.
+
+### Datamodel (kern)
+
+```
+Categorie (rekeningschema, bijlage A; type bepaalt balans/W&V-groepering)
+JournaalPost (datum, dagboek: verkoop|inkoop|bank|memoriaal, periode, omschrijving, bron-verwijzing)
+  └── JournaalRegel (categorie, debet|credit, bedrag, relatie?)          ← som debet = som credit
+Periode (jaar, nr 0-13, open|gesloten)
+Relatie (bedrijf|particulier, adres, factuuradres, e-mail, ...)
+Product | BtwTarief (percentage, rubriek 1a|1b|1e|5b) | Instellingen
+Offerte ──> Factuur ──< FactuurRegel (aantal, bedrag, btw-tarief, product?, korting%)
+Factuur ──> JournaalPost (verkoopboek)   InkoopFactuur ──> JournaalPost (inkoopboek)
+InkoopFactuur ──< InkoopRegel + Bestanden (bon-scan)
+Afschrijving (aanschafwaarde, maanden, restwaarde, cat. balans, cat. kosten) ──< maandelijkse memoriaalposten
+BankRekening ──< BankTransactie (geïmporteerd; status te-verwerken|verwerkt) ──> koppeling (factuur|inkoop|spaar|privé|overig) ──> JournaalPost (bankboek)
+VerwerkRegel (matchpatroon → koppeltype/categorie)
+Project (factureerbaar: klant+uurtarief | intern) ──< Uur (datum, duur, omschrijving, factuur?)
+Vervoermiddel ──< Rit (van, naar, km, zakelijk?, kmstanden) ──> memoriaal reiskosten
+```
+
+## 4. Fasering
+
+Elke fase eindigt met iets bruikbaars; volgorde volgt jouw workflow (offerte → uren → factuur → bank → btw).
+
+| Fase | Inhoud | Resultaat |
+|---|---|---|
+| **1. Fundament** (wk 1–2) | Projectopzet, double-entry kern + categorieën (bijlage A), periodes, instellingen, relaties, producten, btw-tarieven, dashboard-skelet, back-up | Grootboek werkt; mutaties-scherm toont testboekingen |
+| **2. Offertes & facturen** (wk 2–4) | Regeleditor, nummering, PDF, e-mail versturen (+bcc, templates), statussen, creditfactuur, offerte→factuur, verkoopboek-journalisering | Je kunt offreren en factureren vanuit eigen app |
+| **3. Uren, projecten & ritten** (wk 4–5) | Projecten, ureninvoer + weekoverzicht, uren factureren met specificatie, ritten + km-vergoeding | Uren-tot-factuur-flow compleet |
+| **4. Kosten & bank** (wk 5–7) | Inkoop + bon-upload met preview, afschrijvingen, CSV/CAMT-import, verwerk-wachtrij met tabs+suggesties, verwerkregels, handmatige transacties | Administratie sluitend: elke euro gecategoriseerd |
+| **5. Btw & overzichten** (wk 7–8) | Btw-kwartaalscherm (rubrieken + onderbouwing), W&V, balans, kolommenbalans, kosten/omzet-grafiek, beginbalans- en jaarafsluitingswizard | Btw-aangifte uit eigen app (overtypen bij Belastingdienst) |
+| **6. Migratie & parallel draaien** (1 kwartaal) | Historie importeren (relaties, facturen, uren, ritten, categorieën via DigiBoox-exports), beginbalans zetten, één vol kwartaal naast Knab draaien, btw-cijfers vergelijken | Vertrouwen om Knab op te zeggen |
+| **7. Later (optioneel)** | Offerte-accepteerlink, periodieke facturen, Ponto-bankkoppeling, Mollie-betaallinks, OCR bonnen, KVK-zoeken, routeberekening ritten, IB-jaarrapport | Comfort-features |
+
+## 5. Risico's & aandachtspunten
+
+- **Correctheid boven features**: geautomatiseerde tests op journalisering (debet=credit), btw-rubriektoewijzing en afschrijvingsreeksen. Fase 6 (parallel kwartaal) niet inkorten.
+- **Wettelijk**: opeenvolgende factuurnummers, facturen onveranderlijk na versturen, 7 jaar bewaarplicht → back-ups + restore-test, factuureisen (KvK, btw-id, datum, nummer) in de PDF-template.
+- **E-mailbezorging**: facturen versturen vanaf eigen domein met SPF/DKIM, anders spam.
+- **Scope**: het origineel is groot; de ❌/⚪-markeringen bewaken dat we alleen bouwen wat jij gebruikt.
+- **Gegevens in testdata**: screenshots bevatten echte bedrijfsgegevens (KvK, btw-id, IBAN) — die horen in de app-instellingen, niet in de repo/seed-data.
+
+## 6. Nog te beslissen door jou
+
+1. **Techniek**: Python of TypeScript? Wil je zelf aan de code sleutelen?
+2. **Draaiomgeving**: lokaal, NAS/thuisserver, of kleine VPS (nodig als je de offerte-accepteerlink en mobiel gebruik wilt)?
+3. **MoSCoW-check**: kloppen de ✅/🔶/⚪/❌-inschattingen in §2? Vooral: periodieke facturen, ICP, kolommenbalans, bijtelling-wizard.
+4. **KOR**: doe je mee aan de kleineondernemersregeling? (Verandert de btw-module.)
+5. **Stelsel**: factuurstelsel aangenomen (zo werkt het origineel); klopt dat?
+6. **E-mail**: versturen vanaf `@ruisengineering.com` — welke mailprovider/SMTP gebruik je nu?
+
+## 7. Volgende stappen
+
+1. Jij beantwoordt §6 (kan kort, puntsgewijs).
+2. Nieuwe, aparte repository voor de app aanmaken; projectskelet + fase 1 starten.
+3. Voor fase 6 t.z.t. volledige exports uit Knab veiligstellen (facturen-PDF's, transacties, relaties — naast de drie reeds gedeelde exports).
+
+---
+
+## Bijlage A — Rekeningschema (uit DigiBoox-export, 45 categorieën)
+
+| Categorie | Type |
 |---|---|
-| **Facturatie** | Facturen maken/versturen (PDF + e-mail), factuurnummering, btw-tarieven (21/9/0/verlegd/vrijgesteld), herinneringen, creditfacturen, eigen huisstijl/logo, UBL-export |
-| **Offertes** | Offerte maken, versturen, omzetten naar factuur |
-| **Klanten** | Klantenbestand met adres-, btw- en KVK-gegevens |
-| **Uitgaven & bonnetjes** | Bonnetje/factuur uploaden (foto/PDF), koppelen aan transactie, btw eruit registreren |
-| **Banktransacties** | Import (CSV/CAMT.053, evt. later automatische bankkoppeling), categoriseren, koppelen aan facturen/bonnetjes, afletteren |
-| **Btw** | Kwartaaloverzicht per rubriek (1a t/m 5b) klaar om over te typen in Mijn Belastingdienst Zakelijk, ICP-opgaaf indien nodig |
-| **Rapportages** | Winst & verlies, omzet per klant, openstaande facturen, reservering inkomstenbelasting, jaaroverzicht voor de aangifte IB |
-| **Overig** | Zoeken, export (CSV/PDF), back-ups |
+| Afschrijving auto's | Afschrijvingen – Overige materiële vaste activa |
+| Afschrijvingen | Afschrijvingen – Overige materiële vaste activa |
+| Algemene / overige kosten | Overige bedrijfskosten – Andere kosten |
+| Auto's | Materiële vaste activa – Overige materiële vaste activa |
+| Bank | Liquide middelen – Liquide middelen |
+| Bankkosten | Overige bedrijfskosten – Andere kosten |
+| Betaalde / ontvangen btw | Btw – Btw betaald/ontvangen |
+| Betaalde / ontvangen btw over voorgaand jaar | Btw – Btw betaald/ontvangen |
+| Betalings- en afrondingsverschillen | Overige bedrijfskosten – Andere kosten |
+| Boetes | Overige bedrijfskosten – Andere kosten |
+| Borg | Vorderingen – Overige vorderingen |
+| Brandstofkosten auto | Overige bedrijfskosten – Auto- en transportkosten |
+| Crediteuren | Kortlopende schulden – Crediteuren |
+| Debiteuren | Vorderingen – Debiteuren |
+| Deels aftrekbare kosten | Overige bedrijfskosten – Andere kosten |
+| Eten en drinken in de horeca | Overige bedrijfskosten – Andere kosten |
+| Eten en drinken op kantoor | Overige bedrijfskosten – Andere kosten |
+| Huisvestingskosten | Overige bedrijfskosten – Huisvestingskosten |
+| Inkoopkosten materiaal | Inkoopkosten en uitbesteed werk – Inkoopprijs van de verkopen |
+| Investeringen | Materiële vaste activa – Overige materiële vaste activa |
+| Kas | Liquide middelen – Liquide middelen |
+| Kosten onderhoud auto | Overige bedrijfskosten – Auto- en transportkosten |
+| Kosten overig auto | Overige bedrijfskosten – Auto- en transportkosten |
+| Kruisposten / Spaartransactie | Liquide middelen – Kruisposten |
+| Leningen | Langlopende schulden – Overige langlopende schulden |
+| Omzet | Opbrengsten – Omzet |
+| Opleidingen / trainingen | Overige bedrijfskosten – Andere kosten |
+| Oudedagsreserve | Ondernemingsvermogen – Oudedagsreserve |
+| Overboekingsrekening winst | Systeemrekening winst en verlies |
+| Privé-stortingen en -opnames | Ondernemingsvermogen – Gestort en opgevraagd kapitaal |
+| Promotie- en advertentiekosten | Overige bedrijfskosten – Verkoopkosten |
+| Reiskosten | Overige bedrijfskosten – Auto- en transportkosten |
+| Rente betaald | Financiële baten en lasten – Rentelasten |
+| Rente ontvangen | Financiële baten en lasten – Opbrengsten van banktegoeden |
+| Representatiekosten / Relatiegeschenken | Overige bedrijfskosten – Andere kosten |
+| Softwarekosten | Overige bedrijfskosten – Andere kosten |
+| Te betalen btw | Btw – Btw te betalen/ontvangen |
+| Te vorderen btw | Btw – Btw te betalen/ontvangen |
+| Telefoonkosten / internet | Overige bedrijfskosten – Andere kosten |
+| Verzekeringen | Overige bedrijfskosten – Andere kosten |
+| Voorraad | Voorraad – Voorraad |
+| Vraagposten | Kortlopende schulden – Nog te controleren posten |
+| Winstreserves | Ondernemingsvermogen – Winstreserve |
+| Zakelijke Spaarrekening | Liquide middelen – Liquide middelen |
 
-## 4. Voorgestelde architectuur
+## Bijlage B — Btw-rubrieken in het aangiftescherm
 
-**Aanbeveling: lokaal draaiende webapp met SQLite.** Simpel, geen hostingkosten, data blijft bij jou, en een browser-UI is het meest geschikt om Knab-achtige schermen na te bouwen.
-
-- **Backend:** Python (FastAPI) of Node/TypeScript — keuze afhankelijk van waar jij je comfortabel bij voelt (zie §7).
-- **Database:** SQLite (één bestand = triviale back-ups; ruim voldoende voor één administratie).
-- **Frontend:** server-rendered met lichte interactiviteit (bijv. HTMX/Alpine) óf React/Next.js als je een rijkere UI wilt.
-- **PDF-generatie:** HTML-template → PDF (bijv. WeasyPrint of Playwright) voor facturen en offertes.
-- **Bestanden:** bonnetjes/PDF's op schijf naast de database, met hash-verwijzing in de database.
-- **Back-up:** automatische versleutelde back-up van database + bestanden naar cloud-opslag (bewaarplicht!).
-
-**Kern-datamodel (eerste opzet):**
-
-```
-Klant ──< Offerte ──> Factuur ──< Factuurregel (btw-tarief per regel)
-                        │
-Transactie >──koppeling──┤
-     │                   └──< Betaling
-     └── Categorie (grootboek-achtig, incl. btw-behandeling)
-Bonnetje/Inkoopfactuur ──> Transactie-koppeling + btw-bedrag
-BtwPeriode (kwartaal) ── berekend uit facturen + uitgaven (of uit betalingen, bij kasstelsel)
-```
-
-Belangrijk ontwerpprincipe: **facturen zijn onveranderlijk na versturen** (correcties via creditfactuur) en **factuurnummers zijn opeenvolgend** — eisen van de Belastingdienst.
-
-## 5. Fasering van de bouw
-
-Elke fase levert iets op dat je direct kunt gebruiken.
-
-**Fase 1 — Fundament (week 1–2)**
-Projectopzet, datamodel, migraties, klantenbeheer, instellingen (bedrijfsgegevens, btw-id, factuurnummering, logo). Import van je Knab-klantenbestand.
-
-**Fase 2 — Facturatie (week 2–4)**
-Factuur maken/bewerken (concept) → definitief maken → PDF genereren → per e-mail versturen. Creditfacturen, openstaande-facturenlijst, betaalstatus. *Vanaf hier kun je al factureren vanuit je eigen app.*
-
-**Fase 3 — Bank & uitgaven (week 4–6)**
-CSV/CAMT-import van transacties, categoriseren (met onthouden-regels: "afzender X → categorie Y"), bonnetjes uploaden en koppelen, facturen afletteren tegen ontvangsten.
-
-**Fase 4 — Btw & rapportages (week 6–8)**
-Btw-kwartaaloverzicht per rubriek met onderbouwing (klikbaar naar de onderliggende facturen/bonnetjes), winst & verlies, IB-reservering, jaaroverzicht. *Doel: je eerstvolgende btw-aangifte doe je op basis van je eigen app, met Knab ernaast ter controle.*
-
-**Fase 5 — Migratie & parallel draaien (1 kwartaal)**
-Historie uit Knab importeren, één volledig kwartaal beide systemen naast elkaar draaien en de btw-cijfers vergelijken. Pas na een kloppend kwartaal zeg je Knab Boekhouden op.
-
-**Fase 6 — Nice-to-haves (optioneel, daarna)**
-Offertes, automatische bankkoppeling (PSD2 via bijv. GoCardless/Enable Banking), OCR op bonnetjes, urenregistratie, kilometerregistratie, betaallinks op facturen.
-
-## 6. Risico's & aandachtspunten
-
-- **Correctheid boven features:** een btw-fout kost geld en gedoe. Daarom: geautomatiseerde tests op alle btw-berekeningen, en fase 5 (parallel draaien) niet overslaan.
-- **Bewaarplicht:** back-upstrategie is geen bijzaak; 7 jaar data moet veilig staan. Test ook het *terugzetten* van een back-up.
-- **Bankkoppeling:** automatische PSD2-koppelingen kosten geld of hebben beperkingen voor particulier gebruik; CSV-import is gratis en betrouwbaar — daarom pas in fase 6.
-- **Scope creep:** de MoSCoW-lijst uit fase 0 is heilig; nieuwe ideeën gaan op de "later"-lijst.
-- **E-mailbezorging:** facturen mailen vereist een nette afzender (eigen domein + bijv. Postmark/SES of je eigen SMTP), anders belanden facturen in spam.
-
-## 7. Openstaande keuzes (graag jouw antwoord)
-
-1. **Techniek:** heb je een voorkeur voor Python of TypeScript (of iets anders)? Wil je zelf aan de code kunnen sleutelen?
-2. **Draaiomgeving:** lokaal op je eigen computer, thuisserver/NAS, of een kleine VPS zodat je er ook mobiel bij kunt?
-3. **Stelsel:** factuurstelsel (btw op factuurdatum, gebruikelijk) of kasstelsel?
-4. **KOR:** doe je mee aan de kleineondernemersregeling?
-5. **Bankkoppeling:** is handmatige CSV-import (bijv. wekelijks) acceptabel als start?
-6. **Welke Knab-functies gebruik je echt?** — te beantwoorden met de screenshots uit fase 0.
-
-## 8. Eerstvolgende concrete stappen
-
-1. Jij deelt screenshots van de Knab-schermen die je gebruikt + antwoorden op §7.
-2. Ik werk de featurelijst en het datamodel definitief uit op basis daarvan.
-3. Repository voor de app opzetten en starten met fase 1.
+Rubriek 1: prestaties binnenland (1a hoog, 1b laag, 1c overig, 1d privégebruik, 1e 0%/onbelast) · Rubriek 2: verleggingsregelingen binnenland (2a) · Rubriek 3: buitenland (3a uitvoer, 3b EU, 3c installatie/afstandsverkopen) · Rubriek 4: prestaties uit buitenland (4a buiten EU, 4b binnen EU) · Rubriek 5: voorbelasting (5b) → saldo "Btw te betalen/terug te vragen".
